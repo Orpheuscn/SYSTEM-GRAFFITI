@@ -5,19 +5,19 @@
     "厕所": {
       "type": "directory",
       "children": {
-        "_R065454_1.jpg": {
+        "R0653921.jpg": {
           "type": "file"
         },
-        "_R065416_1.jpg": {
+        "R0654041.jpg": {
           "type": "file"
         },
-        "_R065401_1.jpg": {
+        "R0654541.jpg": {
           "type": "file"
         },
-        "_R065392_1.jpg": {
+        "R0654161.jpg": {
           "type": "file"
         },
-        "_R065404_1.jpg": {
+        "R0654011.jpg": {
           "type": "file"
         }
       }
@@ -25,16 +25,16 @@
     "MIMI": {
       "type": "directory",
       "children": {
-        "_R065303_1.jpg": {
+        "R0653101.jpg": {
           "type": "file"
         },
-        "_R065304_1.jpg": {
+        "R0652921.jpg": {
           "type": "file"
         },
-        "_R065292_1.jpg": {
+        "R0653031.jpg": {
           "type": "file"
         },
-        "_R065310_1.jpg": {
+        "R0653041.jpg": {
           "type": "file"
         }
       }
@@ -42,39 +42,42 @@
     "二楼区域": {
       "type": "directory",
       "children": {
-        "_R065363_1.jpg": {
+        "R0655572.jpg": {
           "type": "file"
         },
-        "_R065557_2.jpg": {
+        "R0653631.jpg": {
           "type": "file"
         },
-        "_R065369_1.jpg": {
+        "R0653691.jpg": {
           "type": "file"
         },
-        "_R065349_2.jpg": {
+        "R0653492.jpg": {
           "type": "file"
         },
-        "_R065348_2.jpg": {
+        "R0653482.jpg": {
           "type": "file"
         }
       }
     },
+    "renamefiles.py": {
+      "type": "file"
+    },
     "兔子洞": {
       "type": "directory",
       "children": {
-        "_R065327_1.jpg": {
+        "R0653271.jpg": {
           "type": "file"
         },
-        "_R065318_1.jpg": {
+        "R0653601.jpg": {
           "type": "file"
         },
-        "_R065360_1.jpg": {
+        "R0653181.jpg": {
           "type": "file"
         },
-        "_R065323_1.jpg": {
+        "R0653231.jpg": {
           "type": "file"
         },
-        "_R065324_1.jpg": {
+        "R0653241.jpg": {
           "type": "file"
         }
       }
@@ -82,22 +85,22 @@
     "大厅": {
       "type": "directory",
       "children": {
-        "_R065492_2.jpg": {
+        "R0655012.jpg": {
           "type": "file"
         },
-        "_R065501_2.jpg": {
+        "R0654802.jpg": {
           "type": "file"
         },
-        "_R065480_2.jpg": {
+        "R0655042.jpg": {
           "type": "file"
         },
-        "_R065503_2.jpg": {
+        "R0655022.jpg": {
           "type": "file"
         },
-        "_R065504_2.jpg": {
+        "R0654922.jpg": {
           "type": "file"
         },
-        "_R065502_2.jpg": {
+        "R0655032.jpg": {
           "type": "file"
         }
       }
@@ -105,22 +108,22 @@
     "丹炉": {
       "type": "directory",
       "children": {
-        "_R065532_2.jpg": {
+        "R0655213.jpg": {
           "type": "file"
         },
-        "_R065521_3.jpg": {
+        "R0655402.jpg": {
           "type": "file"
         },
-        "_R065540_2.jpg": {
+        "R0655242.jpg": {
           "type": "file"
         },
-        "_R065539_3.jpg": {
+        "R0655322.jpg": {
           "type": "file"
         },
-        "_R065522_2.jpg": {
+        "R0655222.jpg": {
           "type": "file"
         },
-        "_R065524_2.jpg": {
+        "R0655393.jpg": {
           "type": "file"
         }
       }
