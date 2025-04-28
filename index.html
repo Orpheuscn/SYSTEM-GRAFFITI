@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYSTEM涂鸦档案</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/3.1.0/openseadragon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+    /* --- 基本样式、主题等 --- */
+    :root {
+        --bg-color: #fff; --text-color: #333; --card-bg: #f9f9f9;
+        --card-shadow: 0 4px 15px rgba(0,0,0,.08); --accent-color: #a0522d;
+        --hover-color: #8b4513; --viewer-bg: #000; --border-color: #e0e0e0;
+        --header-bg: #fff; --footer-bg: #333; --footer-text: #ccc;
+        --modal-bg: rgba(0, 0, 0, 0.6); --modal-content-bg: #fff;
+    }
+    .dark-mode {
+        --bg-color: #1a1a1a; --text-color: #eee; --card-bg: #2b2b2b;
+        --card-shadow: 0 4px 15px rgba(0,0,0,.3); --accent-color: #c8a16a;
+        --hover-color: #e0b880; --viewer-bg: #111; --border-color: #444;
+        --header-bg: #222; --footer-bg: #111; --footer-text: #999;
+        --modal-content-bg: #2b2b2b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; transition: background-color .3s, color .3s, border-color .3s; }
+    body { font-family: 'Noto Serif SC', serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+    /* --- 页眉修改 --- */
+    .main-header { background-color: var(--header-bg); padding: 10px 0; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 5px rgba(0,0,0,.05); position: sticky; top: 0; z-index: 999; }
+    .main-header .container { justify-content: space-between; align-items: center; display: flex; flex-wrap: wrap; /* 允许换行 */ }
+    .header-title { /* 页眉左上角标题 */
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: var(--accent-color);
+        margin-right: auto; /* 推开导航和按钮 */
+        padding: 5px 0; /* 增加垂直间距 */
+        order: 1; /* 默认顺序 */
+        white-space: nowrap; /* 防止标题换行 */
+    }
+    .main-nav { order: 3; width: 100%; /* 小屏幕时占满 */ margin-top: 10px; /* 小屏幕时与标题间距 */ }
+    .main-nav ul { align-items: center; display: flex; list-style: none; justify-content: center; /* 导航居中 */ padding-left: 0; }
+    .main-nav ul li { margin: 0 15px; /* 调整菜单项间距 */ position: relative; }
+    .main-nav ul li a { text-decoration: none; color: var(--text-color); font-size: 1rem; transition: color .2s; }
+    .main-nav ul li a:hover, .main-nav ul li a.active { color: var(--accent-color); }
+    .header-actions { align-items: center; display: flex; order: 2; padding: 5px 0; }
+    .theme-toggle {
+        background: 0 0;
+        border: 1px solid var(--accent-color);
+        color: var(--accent-color);
+        padding: 6px 12px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: .85rem;
+        transition: background-color .2s, color .2s;
+        white-space: nowrap; /* 防止按钮文字换行 */
+    }
+    .theme-toggle:hover { background-color: var(--accent-color); color: #fff; }
+
+    /* --- Hero 部分 (保持不变) --- */
+    .hero { background: linear-gradient(rgba(0,0,0,.3),rgba(0,0,0,.3)),url(assets/placeholder-hero.jpg) no-repeat center center/cover; color:#fff; padding:60px 20px; text-align:center; margin-bottom:40px; }
+    .hero h1 { font-size:2.5rem; margin-bottom:15px; text-shadow:1px 1px 3px rgba(0,0,0,.5); }
+    .hero p { font-size:1.1rem; max-width:600px; margin:0 auto; text-shadow:1px 1px 3px rgba(0,0,0,.5); }
+
+    /* --- 主内容和画廊样式 (大部分不变) --- */
+    main { padding: 40px 0; }
+    .section-title { font-size: 1.8rem; color: var(--accent-color); margin-bottom: 30px; text-align: center; position: relative; padding-bottom: 10px; }
+    .section-title::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 3px; background-color: var(--accent-color); }
+    .breadcrumb { margin-bottom: 30px; padding: 12px 15px; background-color: var(--card-bg); border-radius: 5px; border: 1px solid var(--border-color); font-size: .9rem; }
+    .breadcrumb a { color: var(--accent-color); text-decoration: none; margin-right: 8px; }
+    .breadcrumb a:hover { text-decoration: underline; color: var(--hover-color); }
+    .breadcrumb span { margin: 0 5px; color: var(--text-color); opacity: .7; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fill,minmax(min(200px, 100%), 1fr)); /* 调整最小尺寸 */ gap: 20px; /* 调整间距 */ }
+    .folder, .image-item { background-color: var(--card-bg); border-radius: 8px; overflow: hidden; box-shadow: var(--card-shadow); cursor: pointer; transition: transform 0.25s ease-out, box-shadow 0.25s ease-out; position: relative; aspect-ratio: 1/1; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--border-color); background-size: cover; background-position: center; background-repeat: no-repeat; }
+    .folder.loading-cover::after { content: ''; display: block; width: 30px; height: 30px; border: 3px solid rgba(0,0,0,.1); border-radius: 50%; border-top-color: var(--accent-color); animation: spin 1s linear infinite; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .folder:not(.has-cover):not(.loading-cover)::before { content: '📁'; font-size: 3.5rem; color: var(--accent-color); opacity: 0.5; margin-bottom: 10px; }
+    .folder.has-error::before { content: '⚠️'; font-size: 3.5rem; color: red; opacity: 0.7; }
+    .folder-name { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(255, 255, 255, 0.75); color: #333; padding: 6px 12px; font-size: 1.5rem; /* 调整字体大小 */ font-weight: bold; text-align: center; width: auto; max-width: 90%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 0; border: 1px solid rgba(0, 0, 0, 0.1); }
+    .dark-mode .folder-name { background-color: rgba(50, 50, 50, 0.75); color: #eee; border: 1px solid rgba(255, 255, 255, 0.1); }
+    .folder:hover, .image-item:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.12); }
+    .image-item img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; transition: transform 0.3s ease; }
+    .image-item:hover img { transform: scale(1.05); }
+    .image-name { /* 修改：移除图片名称显示 */ display: none; }
+    .empty-message { grid-column: 1 / -1; text-align: center; padding: 60px 20px; background-color: var(--card-bg); border-radius: 8px; border: 1px dashed var(--border-color); color: var(--text-color); opacity: 0.8; }
+    .loader { display: inline-block; width: 25px; height: 25px; border: 3px solid rgba(0,0,0,.1); border-radius: 50%; border-top-color: var(--accent-color); animation: spin 1s linear infinite; margin-right: 10px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- 图片查看器样式 (保持不变) --- */
+    #image-viewer{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--viewer-bg);z-index:1000}#viewer-container{width:100%;height:100%}.close-viewer{position:absolute;top:20px;right:20px;color:#fff;font-size:2rem;cursor:pointer;z-index:1001;background-color:rgba(0,0,0,.5);width:40px;height:40px;border-radius:50%;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;line-height:1}.close-viewer:hover{background-color:rgba(0,0,0,.7)}.info-panel{position:absolute;bottom:0;left:0;width:100%;background-color:rgba(0,0,0,.7);color:#fff;padding:10px 20px;-webkit-transform:translateY(100%);transform:translateY(100%);-webkit-transition:-webkit-transform .3s ease;transition:-webkit-transform .3s ease;transition:transform .3s ease;transition:transform .3s ease,-webkit-transform .3s ease;z-index:1001;font-size:.9rem}.info-panel.visible{-webkit-transform:translateY(0);transform:translateY(0)}.info-panel h3{margin-bottom:5px;font-size:1rem}.info-panel p{margin-bottom:3px;line-height:1.4}.info-toggle{position:absolute;bottom:20px;left:20px;background-color:rgba(0,0,0,.5);color:#fff;border:none;padding:8px 15px;border-radius:20px;cursor:pointer;z-index:1001;font-size:.9rem;-webkit-transition:background-color .3s;transition:background-color .3s}.info-toggle:hover{background-color:rgba(0,0,0,.7)}.controls{position:absolute;top:20px;left:20px;z-index:1001;display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px}.control-btn{background-color:rgba(0,0,0,.5);color:#fff;border:none;width:40px;height:40px;border-radius:50%;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;cursor:pointer;font-size:1.2rem;-webkit-transition:background-color .3s,-webkit-transform .2s;transition:background-color .3s,-webkit-transform .2s;transition:background-color .3s,transform .2s;transition:background-color .3s,transform .2s,-webkit-transform .2s}.control-btn:hover{background-color:rgba(0,0,0,.7);-webkit-transform:scale(1.1);transform:scale(1.1)}.openseadragon-container .openseadragon-controls{display:none!important}
+
+    /* --- 页脚修改 --- */
+    .main-footer { background-color: var(--footer-bg); color: var(--footer-text); padding: 30px 0; margin-top: 60px; font-size: .9rem; border-top: 3px solid var(--accent-color); }
+    .main-footer .container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; /* 增加元素间距 */ }
+    .footer-left { display: flex; align-items: center; gap: 10px; order: 1; } /* Logo 和文字容器 */
+    #footer-logo { height: 40px; /* 稍微放大 Logo */ width: auto; vertical-align: middle; }
+    .footer-logo-text { font-size: 1.1rem; /* 调整文字大小 */ font-weight: bold; white-space: nowrap; /* 强制不换行 */ }
+    .footer-center { text-align: center; order: 3; width: 100%; margin-top: 15px; /* 小屏幕时向下推 */ } /* 版权信息 */
+    .footer-right { display: flex; gap: 20px; order: 2; margin-left: auto; /* 默认推到右边 */ } /* 社交链接 */
+    .footer-right a {
+        color: var(--footer-text);
+        text-decoration: none;
+        font-size: 1.1rem;
+        transition: color 0.2s;
+        cursor: pointer;
+        white-space: nowrap; /* 防止链接内文字换行 */
+    }
+    .footer-right a:hover { color: #fff; }
+
+    /* --- 弹窗 Modal 样式 --- */
+    .modal { display: none; /* 默认隐藏 */ position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: var(--modal-bg); align-items: center; justify-content: center; }
+    .modal-content { background-color: var(--modal-content-bg); margin: auto; padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 450px; /* 限制最大宽度 */ border-radius: 8px; position: relative; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,.2); }
+    .modal-close { color: var(--text-color); position: absolute; top: 10px; right: 20px; font-size: 2rem; font-weight: bold; cursor: pointer; line-height: 1; opacity: 0.7; }
+    .modal-close:hover { color: var(--accent-color); opacity: 1; }
+    .modal-body img { max-width: 100%; height: auto; display: block; margin: 15px auto; border: 1px solid var(--border-color); }
+    .modal-body p { margin-top: 15px; text-align: left; line-height: 1.7; }
+
+    /* --- 响应式设计 --- */
+    @media (min-width: 768px) {
+         /* 页眉布局 */
+        .main-header .container { flex-wrap: nowrap; }
+        .header-title {
+            flex-shrink: 0; /* 防止标题收缩 */
+        }
+        .main-nav {
+            order: 2;
+            width: auto; /* 改回 auto */
+            margin-top: 0;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .header-actions {
+            order: 3;
+            flex-shrink: 0; /* 防止按钮区域收缩 */
+        }
+        .main-nav ul { justify-content: center; } /* 保持导航居中 */
+
+        /* 页脚布局 */
+        .main-footer .container { flex-wrap: nowrap; }
+        .footer-center {
+            order: 2;
+            /* width: 100%; */ /* <<< 移除此行 */
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 0;
+            text-align: center; /* 确保文本居中 */
+        }
+        .footer-right {
+            order: 3;
+            /* margin-left: auto; */ /* 这行在 .footer-right 基本样式里有了，这里不用重复 */
+        }
+        .footer-left {
+            order: 1;
+            margin-right: auto; /* 左侧内容靠左 */
+        }
+
+        /* 调整画廊列数 */
+         .gallery { grid-template-columns: repeat(auto-fill,minmax(min(250px, 100%), 1fr)); }
+         .folder-name { font-size: 2.0rem; }
+         .folder:not(.has-cover):not(.loading-cover)::before { font-size: 4rem; margin-bottom: 15px; }
+         .folder.has-error::before { font-size: 4rem; }
+         .hero h1 {font-size: 2.8rem;}
+         .hero p {font-size: 1.2rem;}
+    }
+    @media (max-width: 480px) {
+        /* 针对非常小的屏幕进一步调整 */
+        .main-nav ul li { margin: 0 8px; }
+        .gallery { gap: 10px; grid-template-columns: repeat(auto-fill,minmax(min(150px, 100%), 1fr)); }
+        .folder-name { font-size: 1.2rem; padding: 4px 8px;}
+         .folder:not(.has-cover):not(.loading-cover)::before { font-size: 3rem; }
+         .folder.has-error::before { font-size: 3rem; }
+        .footer-left, .footer-right { flex-direction: column; align-items: flex-start; gap: 5px; } /* 页脚元素垂直堆叠 */
+        .footer-right { margin-left: 0; } /* 移除推到右边的效果 */
+        .modal-content { padding: 20px; }
+    }
+</style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="container">
+            <div class="header-title">SYSTEM涂鸦档案</div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="#/" class="active">首页</a></li>
+                    <li><a href="#" id="about-link">关于</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <button class="theme-toggle" id="theme-toggle">切换模式</button>
+            </div>
+        </div>
+    </header>
+
+    <section class="hero"><h1>SYSTEM涂鸦档案</h1><p>关于SYSTEM系统云海大厦的记忆</p></section>
+
+    <main>
+        <div class="container">
+            <div class="breadcrumb" id="breadcrumb"><a href="#/" data-path="">根目录</a></div>
+            <h2 class="section-title" id="gallery-title">当前目录</h2>
+            <div class="gallery" id="gallery">
+                <div class="empty-message"><div class="loader"></div>正在加载...</div>
+            </div>
+        </div>
+    </main>
+
+    <div id="image-viewer">
+        <div class="close-viewer" id="close-viewer">×</div>
+        <div class="controls">
+            <button class="control-btn" id="zoom-in" title="放大">+</button>
+            <button class="control-btn" id="zoom-out" title="缩小">-</button>
+            <button class="control-btn" id="home" title="重置视图">⌂</button>
+            <button class="control-btn" id="full-page" title="全屏">⛶</button>
+        </div>
+        <button class="info-toggle" id="info-toggle">显示信息</button>
+        <div class="info-panel" id="info-panel">
+            <h3 id="image-title"></h3>
+            <p id="image-info"></p>
+        </div>
+        <div id="viewer-container"></div>
+    </div>
+
+    <footer class="main-footer">
+        <div class="container">
+            <div class="footer-left">
+                <a class="logo-link" title="返回首页">
+                    <img src="assets/logo.JPG" alt="SYSTEM Logo" id="footer-logo">
+                </a>
+                <span class="footer-logo-text">SYSTEM系统</span>
+            </div>
+
+            <div class="footer-center">&copy; 2025.01.11 版权所有</div>
+
+            <div class="footer-right">
+                <a href="#" title="wechat" id="fb-link">微信</a>
+                <a href="#" title="Instagram" id="ig-link">IG</a>
+            </div>
+        </div>
+    </footer>
+
+
+    <div id="social-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" data-modal-id="social-modal">&times;</span>
+            <div class="modal-body">
+                <img id="qr-code-image" src="" alt="QR Code">
+            </div>
+        </div>
+    </div>
+
+    <div id="about-modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" data-modal-id="about-modal">&times;</span>
+            <div class="modal-body">
+                <h3>关于 SYSTEM 涂鸦档案</h3>
+                <p>本网站所有照片均由Orpheus拍摄。在SYSTEM系统最后一日之后，他觉得有必要将玩家们在此留下的痕迹永久地保存下来。这些墙面的涂鸦终将被剥落，但是它们曾经存在过。</p>
+                <p>如有问题请联系：</p>
+                <img src="assets/about-qr.JPG" alt="关于我们 QR Code">
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- JavaScript (大部分不变, 添加弹窗逻辑) ---
+        const galleryElement = document.getElementById('gallery');
+        const galleryTitleElement = document.getElementById('gallery-title');
+        const breadcrumbElement = document.getElementById('breadcrumb');
+        const themeToggle = document.getElementById('theme-toggle');
+        const imageViewer = document.getElementById('image-viewer');
+        const closeViewer = document.getElementById('close-viewer');
+        const viewerContainer = document.getElementById('viewer-container');
+        const imageTitle = document.getElementById('image-title');
+        const imageInfo = document.getElementById('image-info');
+        const infoPanel = document.getElementById('info-panel');
+        const infoToggle = document.getElementById('info-toggle');
+        const zoomIn = document.getElementById('zoom-in');
+        const zoomOut = document.getElementById('zoom-out');
+        const home = document.getElementById('home');
+        const fullPage = document.getElementById('full-page');
+        const mainNavLinks = document.querySelectorAll('.main-nav a');
+
+        // --- 新增：弹窗相关元素 ---
+        const aboutLink = document.getElementById('about-link');
+        const igLink = document.getElementById('ig-link');
+        const fbLink = document.getElementById('fb-link');
+        const socialModal = document.getElementById('social-modal');
+        const aboutModal = document.getElementById('about-modal');
+        const qrCodeImage = document.getElementById('qr-code-image');
+        const modalCloses = document.querySelectorAll('.modal-close');
+
+        let currentPath = '';
+        let isDarkMode = false;
+        let viewer = null;
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tif', '.tiff'];
+        const baseImageDir = 'SYSTEM';
+
+        // --- 主题切换 (不变) ---
+        themeToggle.addEventListener('click', () => { document.body.classList.toggle('dark-mode'); isDarkMode = document.body.classList.contains('dark-mode'); localStorage.setItem('darkMode', isDarkMode); themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色'; });
+        document.addEventListener('DOMContentLoaded', () => { const savedTheme = localStorage.getItem('darkMode'); if (savedTheme === 'true') { document.body.classList.add('dark-mode'); isDarkMode = true; themeToggle.textContent = '切换亮色'; } const initialPath = window.location.hash.substring(1); loadGallery(initialPath || ''); window.addEventListener('hashchange', () => { const hash = window.location.hash.substring(1); if (hash !== currentPath) { loadGallery(hash); } }); });
+
+        // --- 图片查看器逻辑 (不变) ---
+        closeViewer.addEventListener('click', closeImageViewer);
+        document.addEventListener('keydown', (e) => { const viewerVisible = window.getComputedStyle(imageViewer).display !== 'none'; if (e.key === 'Escape' && viewerVisible) { closeImageViewer(); } });
+        function closeImageViewer() { imageViewer.style.display = 'none'; if (viewer) { viewer.destroy(); viewer = null; } }
+        infoToggle.addEventListener('click', () => { infoPanel.classList.toggle('visible'); infoToggle.textContent = infoPanel.classList.contains('visible') ? '隐藏信息' : '显示信息'; });
+        zoomIn.addEventListener('click', () => { if (viewer) viewer.viewport.zoomBy(1.5); });
+        zoomOut.addEventListener('click', () => { if (viewer) viewer.viewport.zoomBy(0.5); });
+        home.addEventListener('click', () => { if (viewer) viewer.viewport.goHome(); });
+        fullPage.addEventListener('click', () => { if (document.fullscreenElement) { document.exitFullscreen(); } else { imageViewer.requestFullscreen().catch(err => { console.error(`全屏请求失败: ${err.message} (${err.name})`); alert('无法进入全屏模式。您的浏览器可能不支持或阻止了此操作。'); }); } });
+
+        // --- 画廊加载逻辑 (不变) ---
+        async function loadGallery(path) { currentPath = path; updateBreadcrumb(path); updateGalleryTitle(path); updateActiveNavLink(path); const currentHash = window.location.hash.substring(1); if (currentHash !== path) { history.pushState({ path: path }, '', `#${path}`); } galleryElement.innerHTML = '<div class="empty-message"><div class="loader"></div>正在加载...</div>'; try { const galleryContent = await scanDirectory(path); galleryElement.innerHTML = ''; if (galleryContent.directories && galleryContent.directories.length > 0) { galleryContent.directories.forEach(dir => { const folderElement = document.createElement('div'); folderElement.className = 'folder loading-cover'; const dirName = dir.endsWith('/') ? dir.slice(0, -1) : dir; const newPath = path ? `${path}/${dirName}` : dirName; const decodedDirName = decodeURIComponent(dirName); folderElement.innerHTML = `<div class="folder-name">${decodedDirName}</div>`; folderElement.setAttribute('data-path', newPath); folderElement.addEventListener('click', (e) => { const targetPath = e.currentTarget.getAttribute('data-path'); loadGallery(targetPath); }); galleryElement.appendChild(folderElement); fetchAndSetFolderCover(newPath, folderElement); }); } if (galleryContent.images && galleryContent.images.length > 0) { galleryContent.images.forEach(image => { const imageElement = document.createElement('div'); imageElement.className = 'image-item'; const imageUrl = `${baseImageDir}/${path ? path + '/' : ''}${image}`; const decodedImageName = decodeURIComponent(image); imageElement.innerHTML = `<img src="${imageUrl}" alt="${decodedImageName}" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML += '<p style=\\'color:red; padding:10px;\\'>图片加载失败</p>';">`; /* <<< 移除 .image-name div */ imageElement.addEventListener('click', () => { showImageViewer(imageUrl, decodedImageName); }); galleryElement.appendChild(imageElement); }); } if (galleryElement.children.length === 0) { galleryElement.innerHTML = galleryContent.error ? `<div class="empty-message">加载目录失败: ${galleryContent.error}</div>` : '<div class="empty-message">此文件夹为空</div>'; } } catch (error) { console.error('加载画廊时出错:', error); galleryElement.innerHTML = `<div class="empty-message">加载画廊时发生意外错误: ${error.message}.</div>`; } }
+        async function fetchAndSetFolderCover(folderPath, folderElement) { try { const content = await scanDirectory(folderPath); folderElement.classList.remove('loading-cover'); if (content.images && content.images.length > 0) { const coverImageName = content.images[0]; const coverImageUrl = `${baseImageDir}/${folderPath}/${coverImageName}`; folderElement.style.backgroundImage = `url('${coverImageUrl}')`; folderElement.classList.add('has-cover'); } else { folderElement.style.backgroundImage = 'none'; if(content.error) { folderElement.classList.add('has-error'); console.warn(`获取 ${folderPath} 封面失败: ${content.error}`); } } } catch (error) { folderElement.classList.remove('loading-cover'); folderElement.classList.add('has-error'); folderElement.style.backgroundImage = 'none'; console.error(`获取文件夹 ${folderPath} 封面时出错:`, error); } }
+        function updateBreadcrumb(path) { let html = `<a href="#" data-path="">${baseImageDir}</a>`; let currentBuildPath = ''; if (path) { const parts = path.split('/'); parts.forEach((part, index) => { if (!part) return; currentBuildPath += (currentBuildPath ? '/' : '') + part; html += ` <span>/</span> <a href="#${currentBuildPath}" data-path="${currentBuildPath}">${decodeURIComponent(part)}</a>`; }); } breadcrumbElement.innerHTML = html; breadcrumbElement.removeEventListener('click', handleBreadcrumbClick); breadcrumbElement.addEventListener('click', handleBreadcrumbClick); }
+        function handleBreadcrumbClick(e) { if (e.target.tagName === 'A' && e.target.hasAttribute('data-path')) { e.preventDefault(); const pathToLoad = e.target.getAttribute('data-path'); loadGallery(pathToLoad); } }
+        function updateGalleryTitle(path) { if (!path) { galleryTitleElement.textContent = baseImageDir; } else { const parts = path.split('/'); galleryTitleElement.textContent = decodeURIComponent(parts[parts.length - 1]); } }
+        async function scanDirectory(path) { const dirUrl = `${baseImageDir}/${path ? path + '/' : ''}`; try { const response = await fetch(dirUrl); if (!response.ok) { throw new Error(`服务器返回错误 ${response.status}: ${response.statusText}`); } const htmlText = await response.text(); const parser = new DOMParser(); const doc = parser.parseFromString(htmlText, 'text/html'); const links = doc.querySelectorAll('a'); const directories = []; const images = []; links.forEach(link => { let href = link.getAttribute('href'); let linkText = link.textContent.trim(); if (!href || href === '../' || href.startsWith('?') || href.startsWith('#') || href.startsWith('data:')) { return; } if (href.endsWith('/')) { const dirName = href.slice(0, -1); if (dirName && !dirName.includes(':')) { directories.push(dirName); } } else { const extension = href.substring(href.lastIndexOf('.')).toLowerCase(); if (imageExtensions.includes(extension)) { images.push(href); } } }); return { directories, images, error: null }; } catch (error) { console.error(`扫描目录 ${dirUrl} 失败:`, error); return { directories: [], images: [], error: error.message }; } }
+        function updateActiveNavLink(path) { mainNavLinks.forEach(link => { link.classList.remove('active'); if (link.getAttribute('href') === '#/' && (path === '' || path === '/')) { link.classList.add('active'); } }); if(path !== '' && path !== '/') { const homeLink = document.querySelector('.main-nav a[href="#/"]'); if (homeLink) homeLink.classList.remove('active'); } }
+        function showImageViewer(src, title) {
+            imageViewer.style.display = 'block';
+
+            // --- 开始修改 ---
+            // 从 title (原始文件名，例如 "image.jpg") 中移除后缀
+            const lastDotIndex = title.lastIndexOf('.');
+            const filenameWithoutExtension = lastDotIndex > 0 ? title.substring(0, lastDotIndex) : title;
+
+            // 设置信息面板内容
+            imageTitle.textContent = filenameWithoutExtension; // H3 标题也显示不带后缀的文件名
+            
+            // --- 结束修改 ---
+
+            infoPanel.classList.remove('visible');
+            infoToggle.textContent = '显示信息'; // 按钮文字保持不变
+
+            if (viewer) {
+                viewer.destroy();
+            }
+            viewer = OpenSeadragon({
+                id: "viewer-container",
+                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/3.1.0/images/",
+                tileSources: {
+                    type: 'image',
+                    url: src,
+                    buildPyramid: false
+                },
+                showNavigator: true,
+                navigatorPosition: "BOTTOM_RIGHT",
+                animationTime: 0.5,
+                blendTime: 0.1,
+                constrainDuringPan: true,
+                maxZoomPixelRatio: 2,
+                minZoomLevel: 0.5,
+                visibilityRatio: 0.5,
+                zoomPerScroll: 1.2,
+                gestureSettingsMouse: {
+                    clickToZoom: true,
+                    dblClickToZoom: true
+                },
+                showNavigationControl: false,
+                showZoomControl: false,
+                showHomeControl: false,
+                showFullPageControl: false,
+                showRotationControl: false
+            });
+            viewer.addHandler('open', function() {
+                viewer.viewport.goHome();
+            });
+        }
+
+        // --- 新增：弹窗控制逻辑 ---
+        function openModal(modalElement) {
+            modalElement.style.display = 'flex'; // Use flex to center content
+        }
+
+        function closeModal(modalElement) {
+            modalElement.style.display = 'none';
+        }
+
+        aboutLink.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent default link behavior
+            openModal(aboutModal);
+        });
+
+        igLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            qrCodeImage.src = 'assets/ig-qr.jpg'; // Set IG QR code path
+            qrCodeImage.alt = 'Instagram QR Code';
+            openModal(socialModal);
+        });
+
+        fbLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            qrCodeImage.src = 'assets/wc-qr.JPG'; // Set FB QR code path
+            qrCodeImage.alt = 'Wechat QR Code';
+            openModal(socialModal);
+        });
+
+        // Close modal when clicking the close button
+        modalCloses.forEach(button => {
+            button.addEventListener('click', () => {
+                const modalId = button.getAttribute('data-modal-id');
+                const modalToClose = document.getElementById(modalId);
+                if (modalToClose) {
+                    closeModal(modalToClose);
+                }
+            });
+        });
+
+        // Close modal when clicking outside the modal content
+        window.addEventListener('click', (e) => {
+            if (e.target === socialModal) {
+                closeModal(socialModal);
+            }
+            if (e.target === aboutModal) {
+                closeModal(aboutModal);
+            }
+        });
+
+        // Close modal with Escape key
+         document.addEventListener('keydown', (e) => {
+             if (e.key === 'Escape') {
+                 if (window.getComputedStyle(socialModal).display !== 'none') {
+                    closeModal(socialModal);
+                 }
+                 if (window.getComputedStyle(aboutModal).display !== 'none') {
+                    closeModal(aboutModal);
+                 }
+             }
+         });
+
+    </script>
+</body>
+</html>
