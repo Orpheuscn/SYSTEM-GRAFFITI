@@ -1,0 +1,129 @@
+{
+  "name": "SYSTEM",
+  "type": "directory",
+  "children": {
+    "厕所": {
+      "type": "directory",
+      "children": {
+        "_R065454_1.jpg": {
+          "type": "file"
+        },
+        "_R065416_1.jpg": {
+          "type": "file"
+        },
+        "_R065401_1.jpg": {
+          "type": "file"
+        },
+        "_R065392_1.jpg": {
+          "type": "file"
+        },
+        "_R065404_1.jpg": {
+          "type": "file"
+        }
+      }
+    },
+    "靡靡": {
+      "type": "directory",
+      "children": {
+        "_R065303_1.jpg": {
+          "type": "file"
+        },
+        "_R065304_1.jpg": {
+          "type": "file"
+        },
+        "_R065292_1.jpg": {
+          "type": "file"
+        },
+        "_R065310_1.jpg": {
+          "type": "file"
+        }
+      }
+    },
+    "二楼区域": {
+      "type": "directory",
+      "children": {
+        "_R065363_1.jpg": {
+          "type": "file"
+        },
+        "_R065557_2.jpg": {
+          "type": "file"
+        },
+        "_R065369_1.jpg": {
+          "type": "file"
+        },
+        "_R065349_2.jpg": {
+          "type": "file"
+        },
+        "_R065348_2.jpg": {
+          "type": "file"
+        }
+      }
+    },
+    "兔子洞": {
+      "type": "directory",
+      "children": {
+        "_R065327_1.jpg": {
+          "type": "file"
+        },
+        "_R065318_1.jpg": {
+          "type": "file"
+        },
+        "_R065360_1.jpg": {
+          "type": "file"
+        },
+        "_R065323_1.jpg": {
+          "type": "file"
+        },
+        "_R065324_1.jpg": {
+          "type": "file"
+        }
+      }
+    },
+    "大厅": {
+      "type": "directory",
+      "children": {
+        "_R065492_2.jpg": {
+          "type": "file"
+        },
+        "_R065501_2.jpg": {
+          "type": "file"
+        },
+        "_R065480_2.jpg": {
+          "type": "file"
+        },
+        "_R065503_2.jpg": {
+          "type": "file"
+        },
+        "_R065504_2.jpg": {
+          "type": "file"
+        },
+        "_R065502_2.jpg": {
+          "type": "file"
+        }
+      }
+    },
+    "丹炉": {
+      "type": "directory",
+      "children": {
+        "_R065532_2.jpg": {
+          "type": "file"
+        },
+        "_R065521_3.jpg": {
+          "type": "file"
+        },
+        "_R065540_2.jpg": {
+          "type": "file"
+        },
+        "_R065539_3.jpg": {
+          "type": "file"
+        },
+        "_R065522_2.jpg": {
+          "type": "file"
+        },
+        "_R065524_2.jpg": {
+          "type": "file"
+        }
+      }
+    }
+  }
+}

@@ -262,7 +262,7 @@
 
 
     <script>
-        // --- JavaScript (大部分不变, 添加弹窗逻辑) ---
+        // --- DOM Element Variables ---
         const galleryElement = document.getElementById('gallery');
         const galleryTitleElement = document.getElementById('gallery-title');
         const breadcrumbElement = document.getElementById('breadcrumb');
@@ -278,72 +278,408 @@
         const zoomOut = document.getElementById('zoom-out');
         const home = document.getElementById('home');
         const fullPage = document.getElementById('full-page');
-        const mainNavLinks = document.querySelectorAll('.main-nav a');
+        const mainNavLinks = document.querySelectorAll('.main-nav a'); // For active link highlighting
 
-        // --- 新增：弹窗相关元素 ---
-        const aboutLink = document.getElementById('about-link');
-        const igLink = document.getElementById('ig-link');
-        const fbLink = document.getElementById('fb-link');
+        // --- Modal Related Elements (Based on your final HTML) ---
+        // Note: Your final HTML has #about-link in nav but not the other links
+        // Adjust if you add About/Contact links back to nav or use other triggers
+        const aboutLink = document.querySelector('.main-nav a[href="#"]'); // Assuming '关于' link triggers about modal
+        const igLink = document.getElementById('ig-link');     // Assuming footer IG link
+        const fbLink = document.getElementById('fb-link');     // Assuming footer 微信 link (ID is 'fb-link' in your HTML)
         const socialModal = document.getElementById('social-modal');
         const aboutModal = document.getElementById('about-modal');
         const qrCodeImage = document.getElementById('qr-code-image');
         const modalCloses = document.querySelectorAll('.modal-close');
 
+
+        // --- State Variables ---
         let currentPath = '';
         let isDarkMode = false;
         let viewer = null;
         const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tif', '.tiff'];
-        const baseImageDir = 'SYSTEM';
+        const baseImageDir = 'SYSTEM'; // Base directory for constructing image URLs (relative to index.html)
 
-        // --- 主题切换 (不变) ---
-        themeToggle.addEventListener('click', () => { document.body.classList.toggle('dark-mode'); isDarkMode = document.body.classList.contains('dark-mode'); localStorage.setItem('darkMode', isDarkMode); themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色'; });
-        document.addEventListener('DOMContentLoaded', () => { const savedTheme = localStorage.getItem('darkMode'); if (savedTheme === 'true') { document.body.classList.add('dark-mode'); isDarkMode = true; themeToggle.textContent = '切换亮色'; } const initialPath = window.location.hash.substring(1); loadGallery(initialPath || ''); window.addEventListener('hashchange', () => { const hash = window.location.hash.substring(1); if (hash !== currentPath) { loadGallery(hash); } }); });
+        // --- NEW: Variable to store the loaded JSON file structure ---
+        let fileStructure = null;
 
-        // --- 图片查看器逻辑 (不变) ---
-        closeViewer.addEventListener('click', closeImageViewer);
-        document.addEventListener('keydown', (e) => { const viewerVisible = window.getComputedStyle(imageViewer).display !== 'none'; if (e.key === 'Escape' && viewerVisible) { closeImageViewer(); } });
-        function closeImageViewer() { imageViewer.style.display = 'none'; if (viewer) { viewer.destroy(); viewer = null; } }
-        infoToggle.addEventListener('click', () => { infoPanel.classList.toggle('visible'); infoToggle.textContent = infoPanel.classList.contains('visible') ? '隐藏信息' : '显示信息'; });
-        zoomIn.addEventListener('click', () => { if (viewer) viewer.viewport.zoomBy(1.5); });
-        zoomOut.addEventListener('click', () => { if (viewer) viewer.viewport.zoomBy(0.5); });
-        home.addEventListener('click', () => { if (viewer) viewer.viewport.goHome(); });
-        fullPage.addEventListener('click', () => { if (document.fullscreenElement) { document.exitFullscreen(); } else { imageViewer.requestFullscreen().catch(err => { console.error(`全屏请求失败: ${err.message} (${err.name})`); alert('无法进入全屏模式。您的浏览器可能不支持或阻止了此操作。'); }); } });
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load theme preference
+            loadThemePreference();
 
-        // --- 画廊加载逻辑 (不变) ---
-        async function loadGallery(path) { currentPath = path; updateBreadcrumb(path); updateGalleryTitle(path); updateActiveNavLink(path); const currentHash = window.location.hash.substring(1); if (currentHash !== path) { history.pushState({ path: path }, '', `#${path}`); } galleryElement.innerHTML = '<div class="empty-message"><div class="loader"></div>正在加载...</div>'; try { const galleryContent = await scanDirectory(path); galleryElement.innerHTML = ''; if (galleryContent.directories && galleryContent.directories.length > 0) { galleryContent.directories.forEach(dir => { const folderElement = document.createElement('div'); folderElement.className = 'folder loading-cover'; const dirName = dir.endsWith('/') ? dir.slice(0, -1) : dir; const newPath = path ? `${path}/${dirName}` : dirName; const decodedDirName = decodeURIComponent(dirName); folderElement.innerHTML = `<div class="folder-name">${decodedDirName}</div>`; folderElement.setAttribute('data-path', newPath); folderElement.addEventListener('click', (e) => { const targetPath = e.currentTarget.getAttribute('data-path'); loadGallery(targetPath); }); galleryElement.appendChild(folderElement); fetchAndSetFolderCover(newPath, folderElement); }); } if (galleryContent.images && galleryContent.images.length > 0) { galleryContent.images.forEach(image => { const imageElement = document.createElement('div'); imageElement.className = 'image-item'; const imageUrl = `${baseImageDir}/${path ? path + '/' : ''}${image}`; const decodedImageName = decodeURIComponent(image); imageElement.innerHTML = `<img src="${imageUrl}" alt="${decodedImageName}" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML += '<p style=\\'color:red; padding:10px;\\'>图片加载失败</p>';">`; /* <<< 移除 .image-name div */ imageElement.addEventListener('click', () => { showImageViewer(imageUrl, decodedImageName); }); galleryElement.appendChild(imageElement); }); } if (galleryElement.children.length === 0) { galleryElement.innerHTML = galleryContent.error ? `<div class="empty-message">加载目录失败: ${galleryContent.error}</div>` : '<div class="empty-message">此文件夹为空</div>'; } } catch (error) { console.error('加载画廊时出错:', error); galleryElement.innerHTML = `<div class="empty-message">加载画廊时发生意外错误: ${error.message}.</div>`; } }
-        async function fetchAndSetFolderCover(folderPath, folderElement) { try { const content = await scanDirectory(folderPath); folderElement.classList.remove('loading-cover'); if (content.images && content.images.length > 0) { const coverImageName = content.images[0]; const coverImageUrl = `${baseImageDir}/${folderPath}/${coverImageName}`; folderElement.style.backgroundImage = `url('${coverImageUrl}')`; folderElement.classList.add('has-cover'); } else { folderElement.style.backgroundImage = 'none'; if(content.error) { folderElement.classList.add('has-error'); console.warn(`获取 ${folderPath} 封面失败: ${content.error}`); } } } catch (error) { folderElement.classList.remove('loading-cover'); folderElement.classList.add('has-error'); folderElement.style.backgroundImage = 'none'; console.error(`获取文件夹 ${folderPath} 封面时出错:`, error); } }
-        function updateBreadcrumb(path) { let html = `<a href="#" data-path="">${baseImageDir}</a>`; let currentBuildPath = ''; if (path) { const parts = path.split('/'); parts.forEach((part, index) => { if (!part) return; currentBuildPath += (currentBuildPath ? '/' : '') + part; html += ` <span>/</span> <a href="#${currentBuildPath}" data-path="${currentBuildPath}">${decodeURIComponent(part)}</a>`; }); } breadcrumbElement.innerHTML = html; breadcrumbElement.removeEventListener('click', handleBreadcrumbClick); breadcrumbElement.addEventListener('click', handleBreadcrumbClick); }
-        function handleBreadcrumbClick(e) { if (e.target.tagName === 'A' && e.target.hasAttribute('data-path')) { e.preventDefault(); const pathToLoad = e.target.getAttribute('data-path'); loadGallery(pathToLoad); } }
-        function updateGalleryTitle(path) { if (!path) { galleryTitleElement.textContent = baseImageDir; } else { const parts = path.split('/'); galleryTitleElement.textContent = decodeURIComponent(parts[parts.length - 1]); } }
-        async function scanDirectory(path) { const dirUrl = `${baseImageDir}/${path ? path + '/' : ''}`; try { const response = await fetch(dirUrl); if (!response.ok) { throw new Error(`服务器返回错误 ${response.status}: ${response.statusText}`); } const htmlText = await response.text(); const parser = new DOMParser(); const doc = parser.parseFromString(htmlText, 'text/html'); const links = doc.querySelectorAll('a'); const directories = []; const images = []; links.forEach(link => { let href = link.getAttribute('href'); let linkText = link.textContent.trim(); if (!href || href === '../' || href.startsWith('?') || href.startsWith('#') || href.startsWith('data:')) { return; } if (href.endsWith('/')) { const dirName = href.slice(0, -1); if (dirName && !dirName.includes(':')) { directories.push(dirName); } } else { const extension = href.substring(href.lastIndexOf('.')).toLowerCase(); if (imageExtensions.includes(extension)) { images.push(href); } } }); return { directories, images, error: null }; } catch (error) { console.error(`扫描目录 ${dirUrl} 失败:`, error); return { directories: [], images: [], error: error.message }; } }
-        function updateActiveNavLink(path) { mainNavLinks.forEach(link => { link.classList.remove('active'); if (link.getAttribute('href') === '#/' && (path === '' || path === '/')) { link.classList.add('active'); } }); if(path !== '' && path !== '/') { const homeLink = document.querySelector('.main-nav a[href="#/"]'); if (homeLink) homeLink.classList.remove('active'); } }
-        function showImageViewer(src, title) {
+            // --- Fetch the file list JSON ---
+            try {
+                const response = await fetch('filelist.json'); // Fetch the JSON file from the root
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
+                }
+                fileStructure = await response.json(); // Parse and store the JSON
+                console.log("File structure loaded:", fileStructure); // Optional: check console
+
+                // Initial gallery load (after JSON is loaded)
+                const initialPath = window.location.hash.substring(1);
+                loadGallery(initialPath || ''); // Load initial path or root
+
+            } catch (error) {
+                console.error('Failed to load file structure:', error);
+                galleryElement.innerHTML = `<div class="empty-message">错误：无法加载文件列表 (filelist.json)。<br>请确保文件存在于网站根目录且格式正确。<br>${error.message}</div>`;
+            }
+
+            // Hash change listener
+            window.addEventListener('hashchange', () => {
+                const hash = window.location.hash.substring(1);
+                // Only reload if the hash actually changed and JSON is loaded
+                if (hash !== currentPath && fileStructure) {
+                    loadGallery(hash);
+                }
+            });
+
+            // Setup other event listeners
+            setupEventListeners();
+        });
+
+        // --- Theme Handling ---
+        function loadThemePreference() {
+            const savedTheme = localStorage.getItem('darkMode');
+            if (savedTheme === 'true') {
+                document.body.classList.add('dark-mode');
+                isDarkMode = true;
+                 themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色'; // Adjust text based on actual button content
+            } else {
+                 themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色';
+            }
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            isDarkMode = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+            themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色'; // Adjust text
+        }
+
+
+        // --- Event Listeners Setup ---
+        function setupEventListeners() {
+            themeToggle.addEventListener('click', toggleTheme);
+
+            // Image Viewer Controls
+            closeViewer.addEventListener('click', closeImageViewer);
+            infoToggle.addEventListener('click', toggleInfoPanel);
+            zoomIn.addEventListener('click', () => { if (viewer) viewer.viewport.zoomBy(1.5); });
+            zoomOut.addEventListener('click', () => { if (viewer) viewer.viewport.zoomBy(0.5); });
+            home.addEventListener('click', () => { if (viewer) viewer.viewport.goHome(); });
+            fullPage.addEventListener('click', toggleFullScreenViewer);
+
+             // Breadcrumb Navigation (delegated)
+             breadcrumbElement.addEventListener('click', handleBreadcrumbClick);
+
+            // Modal Triggers & Closing
+             // Ensure links exist before adding listeners
+             if (aboutLink) {
+                aboutLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openModal(aboutModal);
+                 });
+             } else {
+                 console.warn("About link not found for modal trigger.");
+             }
+
+             if (igLink) {
+                 igLink.addEventListener('click', (e) => {
+                     e.preventDefault();
+                     qrCodeImage.src = 'assets/ig-qr.png'; // Assuming this path exists
+                     qrCodeImage.alt = 'Instagram QR Code';
+                     openModal(socialModal);
+                 });
+             } else {
+                  console.warn("IG link not found for modal trigger.");
+             }
+
+             if (fbLink) {
+                 fbLink.addEventListener('click', (e) => {
+                     e.preventDefault();
+                     qrCodeImage.src = 'assets/wc-qr.JPG'; // Use the correct path from your HTML
+                     qrCodeImage.alt = 'Wechat QR Code';
+                     openModal(socialModal);
+                 });
+             } else {
+                 console.warn("Wechat/FB link ('#fb-link') not found for modal trigger.");
+             }
+
+
+             modalCloses.forEach(button => {
+                 button.addEventListener('click', () => {
+                     const modalId = button.getAttribute('data-modal-id');
+                     const modalToClose = document.getElementById(modalId);
+                     if (modalToClose) {
+                         closeModal(modalToClose);
+                     }
+                 });
+             });
+
+             window.addEventListener('click', (e) => {
+                 if (e.target === socialModal) closeModal(socialModal);
+                 if (e.target === aboutModal) closeModal(aboutModal);
+             });
+
+            // Keyboard listeners (Escape key)
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        function handleKeyDown(e) {
+             const viewerVisible = window.getComputedStyle(imageViewer).display !== 'none';
+             const socialModalVisible = window.getComputedStyle(socialModal).display !== 'none';
+             const aboutModalVisible = window.getComputedStyle(aboutModal).display !== 'none';
+
+             if (e.key === 'Escape') {
+                 if (viewerVisible) {
+                     closeImageViewer();
+                 } else if (socialModalVisible) {
+                     closeModal(socialModal);
+                 } else if (aboutModalVisible) {
+                     closeModal(aboutModal);
+                 }
+             }
+        }
+
+
+        // --- JSON Navigation Helper ---
+        function getNodeByPath(structure, path) {
+            if (!structure) return null;
+            // Handle root path explicitly targeting the initial structure from JSON
+            if (path === '' || path === '/') {
+                 // Assuming your JSON root IS the 'SYSTEM' directory object
+                 if (structure.name === baseImageDir && structure.type === 'directory') {
+                     return structure;
+                 } else {
+                      console.warn("JSON root does not match expected baseImageDir structure.");
+                      return structure; // Fallback to returning the raw structure
+                 }
+            }
+
+            const parts = path.split('/').filter(p => p); // Split path and remove empty parts
+            let currentNode = structure; // Start from the loaded root JSON object
+
+            for (const part of parts) {
+                const decodedPart = decodeURIComponent(part); // Handle encoded names if necessary
+                if (currentNode && currentNode.children && currentNode.children[decodedPart]) {
+                    currentNode = currentNode.children[decodedPart];
+                } else {
+                    console.warn(`Part '${decodedPart}' not found in path '${path}' within JSON node:`, currentNode);
+                    return null; // Path segment not found
+                }
+            }
+            return currentNode;
+        }
+
+        // --- Gallery Loading (Uses JSON) ---
+        function loadGallery(path) {
+            if (!fileStructure) {
+                galleryElement.innerHTML = '<div class="empty-message"><div class="loader"></div>文件列表尚未加载...</div>';
+                console.error("loadGallery called before file structure was loaded.");
+                return;
+            }
+
+            console.log(`Loading gallery for path: '${path}'`); // Debugging
+            currentPath = path;
+            updateBreadcrumb(path);
+            updateGalleryTitle(path); // Update title based on the target directory name
+            updateActiveNavLink(path);
+
+            // Navigate the JSON based on the path
+            const currentNode = getNodeByPath(fileStructure, path);
+            console.log("Current JSON node:", currentNode); // Debugging
+
+            galleryElement.innerHTML = ''; // Clear previous content
+
+            if (!currentNode || currentNode.type !== 'directory') {
+                console.error(`Path not found or not a directory in JSON: ${path}`);
+                galleryElement.innerHTML = `<div class="empty-message">错误：无法在文件列表找到路径 '${path}'。</div>`;
+                updateGalleryTitle(`错误`); // Indicate error in title
+                return;
+            }
+
+             // Update title using the name from the JSON node if available
+             updateGalleryTitle(path); // Use the path logic for now, can refine later
+
+            // Check if the directory node has children
+             if (!currentNode.children || Object.keys(currentNode.children).length === 0) {
+                 galleryElement.innerHTML = '<div class="empty-message">此文件夹为空</div>';
+                 return;
+             }
+
+            // Process directories and images from the JSON node's children
+            const children = currentNode.children;
+            let itemCount = 0;
+            const sortedKeys = Object.keys(children).sort(); // Sort for consistency
+
+            sortedKeys.forEach(itemName => {
+                const item = children[itemName];
+                const encodedItemName = encodeURIComponent(itemName); // Ensure name is URL-safe for path
+                const newPath = path ? `${path}/${encodedItemName}` : encodedItemName; // Construct full path for item
+
+                if (item.type === 'directory') {
+                    itemCount++;
+                    const folderElement = document.createElement('div');
+                    folderElement.className = 'folder loading-cover'; // Add loading class for cover fetch
+                    folderElement.innerHTML = `<div class="folder-name">${itemName}</div>`; // Use original name for display
+                    folderElement.setAttribute('data-path', newPath); // Use URL-safe path for navigation
+                    folderElement.addEventListener('click', (e) => {
+                        const targetPath = e.currentTarget.getAttribute('data-path');
+                        window.location.hash = `#${targetPath}`; // Use hash change to trigger load
+                    });
+                    galleryElement.appendChild(folderElement);
+                    fetchAndSetFolderCover(newPath, folderElement); // Fetch cover using URL-safe path
+                } else if (item.type === 'file') {
+                     const extension = itemName.substring(itemName.lastIndexOf('.')).toLowerCase();
+                     if (imageExtensions.includes(extension)) {
+                         itemCount++;
+                         const imageElement = document.createElement('div');
+                         imageElement.className = 'image-item';
+                         // Construct URL: Base Dir + Full Path (already includes filename)
+                         const imageUrl = `${baseImageDir}/${path ? path + '/' : ''}${itemName}`; // Use original names for URL construction
+                         // const imageDisplayName = itemName; // Use original name for display/alt text
+
+                         // Apply filename-only logic for display if needed, otherwise use full name
+                         const lastDot = itemName.lastIndexOf('.');
+                         const nameForDisplay = lastDot > 0 ? itemName.substring(0, lastDot) : itemName;
+
+                         // Note: Your HTML included '.image-name' again. Uncomment if needed.
+                         imageElement.innerHTML = `<img src="${imageUrl}" alt="${nameForDisplay}" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML += '<p style=\\'color:red; padding:10px;\\'>图片加载失败</p>';">`;
+                         // + `<div class="image-name">${nameForDisplay}</div>`; // Uncomment if you want the hover name back
+
+                         imageElement.addEventListener('click', () => {
+                             showImageViewer(imageUrl, itemName); // Pass URL and original filename (for info panel)
+                         });
+                         galleryElement.appendChild(imageElement);
+                     }
+                }
+            });
+
+             if (itemCount === 0 && galleryElement.children.length === 0) { // Check if really empty after filtering
+                 galleryElement.innerHTML = '<div class="empty-message">此文件夹中没有图片或子目录。</div>';
+             }
+        }
+
+        // --- Folder Cover Loading (Uses JSON) ---
+        function fetchAndSetFolderCover(folderPath, folderElement) {
+            if (!fileStructure) return; // Guard against race condition
+
+            const folderNode = getNodeByPath(fileStructure, folderPath);
+            folderElement.classList.remove('loading-cover'); // Remove spinner once processed
+
+            if (!folderNode || folderNode.type !== 'directory' || !folderNode.children) {
+                 folderElement.style.backgroundImage = 'none';
+                 folderElement.classList.remove('has-cover');
+                 // Optionally add an error class if node not found vs. just empty
+                 if (!folderNode) folderElement.classList.add('has-error');
+                return;
+            }
+
+            let coverImageUrl = null;
+            const childrenKeys = Object.keys(folderNode.children).sort();
+            for (const itemName of childrenKeys) {
+                const item = folderNode.children[itemName];
+                if (item.type === 'file') {
+                    const extension = itemName.substring(itemName.lastIndexOf('.')).toLowerCase();
+                    if (imageExtensions.includes(extension)) {
+                         // Construct URL: Base Dir + Folder Path + Item Name
+                         // Need original names here for the URL path segments
+                         const originalPathSegments = folderPath.split('/').map(decodeURIComponent).join('/');
+                         coverImageUrl = `${baseImageDir}/${originalPathSegments}/${itemName}`;
+                         break;
+                    }
+                }
+            }
+
+            if (coverImageUrl) {
+                folderElement.style.backgroundImage = `url('${coverImageUrl}')`;
+                folderElement.classList.add('has-cover');
+                folderElement.classList.remove('has-error'); // Remove error if cover is found
+            } else {
+                folderElement.style.backgroundImage = 'none';
+                folderElement.classList.remove('has-cover');
+                folderElement.classList.remove('has-error'); // Not an error if just empty
+            }
+        }
+
+        // --- UI Update Functions ---
+        function updateBreadcrumb(path) {
+            // Use baseImageDir from JSON if available, otherwise fallback
+            const rootDisplayName = fileStructure?.name || baseImageDir;
+            let html = `<a href="#/" data-path="">${rootDisplayName}</a>`; // Link to root hash
+            let currentBuildPath = '';
+            if (path) {
+                const parts = path.split('/');
+                parts.forEach((part) => {
+                    if (!part) return;
+                    const decodedPart = decodeURIComponent(part); // Display decoded name
+                    // Build path using encoded parts for the href/data-path
+                    currentBuildPath += (currentBuildPath ? '/' : '') + part;
+                    html += ` <span>/</span> <a href="#${currentBuildPath}" data-path="${currentBuildPath}">${decodedPart}</a>`;
+                });
+            }
+            breadcrumbElement.innerHTML = html;
+            // Event listener is delegated in setupEventListeners, no need to re-attach
+        }
+
+        function handleBreadcrumbClick(e) {
+            if (e.target.tagName === 'A' && e.target.hasAttribute('data-path')) {
+                e.preventDefault();
+                const pathToLoad = e.target.getAttribute('data-path');
+                // Use hash change to trigger navigation and history
+                window.location.hash = `#${pathToLoad}`;
+            }
+        }
+
+        function updateGalleryTitle(path) {
+             if (!path) {
+                 galleryTitleElement.textContent = fileStructure?.name || baseImageDir;
+             } else {
+                 const parts = path.split('/');
+                 galleryTitleElement.textContent = decodeURIComponent(parts[parts.length - 1]); // Show last part decoded
+             }
+         }
+
+        function updateActiveNavLink(path) {
+             // This function needs adjustment based on your final nav links if they relate to paths
+             // Currently, it only highlights "首页" when path is empty
+             mainNavLinks.forEach(link => {
+                 link.classList.remove('active');
+                 // Check if the link's href corresponds to the current base path
+                 // This logic might need refinement depending on nav structure
+                 if (link.getAttribute('href') === '#/' && (path === '' || path === '/')) {
+                     link.classList.add('active');
+                 }
+                 // Add logic here if other nav links should be active based on path
+             });
+             // Ensure home is not active if navigating deeper
+             if(path !== '' && path !== '/') {
+                 const homeLink = document.querySelector('.main-nav a[href="#/"]');
+                 if (homeLink) homeLink.classList.remove('active');
+             }
+         }
+
+        // --- Image Viewer Functions ---
+        function showImageViewer(src, originalFilename) { // Use original filename for info panel
             imageViewer.style.display = 'block';
 
-            // --- 开始修改 ---
-            // 从 title (原始文件名，例如 "image.jpg") 中移除后缀
-            const lastDotIndex = title.lastIndexOf('.');
-            const filenameWithoutExtension = lastDotIndex > 0 ? title.substring(0, lastDotIndex) : title;
+            // Extract filename without extension for display
+            const lastDotIndex = originalFilename.lastIndexOf('.');
+            const filenameWithoutExtension = lastDotIndex > 0 ? originalFilename.substring(0, lastDotIndex) : originalFilename;
 
-            // 设置信息面板内容
-            imageTitle.textContent = filenameWithoutExtension; // H3 标题也显示不带后缀的文件名
-            
-            // --- 结束修改 ---
+            // Set info panel content
+            imageTitle.textContent = filenameWithoutExtension; // Show filename without ext in title
+            imageInfo.textContent = `文件名: ${filenameWithoutExtension}`; // Show filename without ext in info
 
             infoPanel.classList.remove('visible');
-            infoToggle.textContent = '显示信息'; // 按钮文字保持不变
+            infoToggle.textContent = '显示信息';
 
-            if (viewer) {
-                viewer.destroy();
-            }
+            if (viewer) { viewer.destroy(); viewer = null; }
             viewer = OpenSeadragon({
                 id: "viewer-container",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/3.1.0/images/",
-                tileSources: {
-                    type: 'image',
-                    url: src,
-                    buildPyramid: false
-                },
+                tileSources: { type: 'image', url: src, buildPyramid: false }, // Use the direct image URL
                 showNavigator: true,
                 navigatorPosition: "BOTTOM_RIGHT",
                 animationTime: 0.5,
@@ -353,81 +689,56 @@
                 minZoomLevel: 0.5,
                 visibilityRatio: 0.5,
                 zoomPerScroll: 1.2,
-                gestureSettingsMouse: {
-                    clickToZoom: true,
-                    dblClickToZoom: true
-                },
-                showNavigationControl: false,
+                gestureSettingsMouse: { clickToZoom: true, dblClickToZoom: true },
+                showNavigationControl: false, // Use custom buttons
                 showZoomControl: false,
                 showHomeControl: false,
                 showFullPageControl: false,
                 showRotationControl: false
             });
             viewer.addHandler('open', function() {
-                viewer.viewport.goHome();
+                viewer.viewport.goHome(false); // Go home without animation on open
             });
+             viewer.addHandler('canvas-click', function() { // Optional: Close info panel on click
+                 if (infoPanel.classList.contains('visible')) {
+                      toggleInfoPanel();
+                 }
+             });
         }
 
-        // --- 新增：弹窗控制逻辑 ---
+        function closeImageViewer() {
+            imageViewer.style.display = 'none';
+            if (viewer) {
+                viewer.destroy();
+                viewer = null;
+            }
+        }
+
+        function toggleInfoPanel() {
+            infoPanel.classList.toggle('visible');
+            infoToggle.textContent = infoPanel.classList.contains('visible') ? '隐藏信息' : '显示信息';
+        }
+
+        function toggleFullScreenViewer() {
+             if (!document.fullscreenElement) {
+                  imageViewer.requestFullscreen().catch(err => {
+                      console.error(`Fullscreen request failed: ${err.message} (${err.name})`);
+                      alert('无法进入全屏模式。');
+                  });
+              } else {
+                   document.exitFullscreen();
+              }
+        }
+
+
+        // --- Modal Control Functions ---
         function openModal(modalElement) {
-            modalElement.style.display = 'flex'; // Use flex to center content
+            if(modalElement) modalElement.style.display = 'flex';
         }
 
         function closeModal(modalElement) {
-            modalElement.style.display = 'none';
+             if(modalElement) modalElement.style.display = 'none';
         }
-
-        aboutLink.addEventListener('click', (e) => {
-            e.preventDefault(); // Prevent default link behavior
-            openModal(aboutModal);
-        });
-
-        igLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            qrCodeImage.src = 'assets/ig-qr.jpg'; // Set IG QR code path
-            qrCodeImage.alt = 'Instagram QR Code';
-            openModal(socialModal);
-        });
-
-        fbLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            qrCodeImage.src = 'assets/wc-qr.JPG'; // Set FB QR code path
-            qrCodeImage.alt = 'Wechat QR Code';
-            openModal(socialModal);
-        });
-
-        // Close modal when clicking the close button
-        modalCloses.forEach(button => {
-            button.addEventListener('click', () => {
-                const modalId = button.getAttribute('data-modal-id');
-                const modalToClose = document.getElementById(modalId);
-                if (modalToClose) {
-                    closeModal(modalToClose);
-                }
-            });
-        });
-
-        // Close modal when clicking outside the modal content
-        window.addEventListener('click', (e) => {
-            if (e.target === socialModal) {
-                closeModal(socialModal);
-            }
-            if (e.target === aboutModal) {
-                closeModal(aboutModal);
-            }
-        });
-
-        // Close modal with Escape key
-         document.addEventListener('keydown', (e) => {
-             if (e.key === 'Escape') {
-                 if (window.getComputedStyle(socialModal).display !== 'none') {
-                    closeModal(socialModal);
-                 }
-                 if (window.getComputedStyle(aboutModal).display !== 'none') {
-                    closeModal(aboutModal);
-                 }
-             }
-         });
 
     </script>
 </body>
