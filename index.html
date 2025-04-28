@@ -262,7 +262,7 @@
 
 
     <script>
-        // --- DOM Element Variables ---
+        // --- DOM Element Variables (Copied from your HTML) ---
         const galleryElement = document.getElementById('gallery');
         const galleryTitleElement = document.getElementById('gallery-title');
         const breadcrumbElement = document.getElementById('breadcrumb');
@@ -278,315 +278,253 @@
         const zoomOut = document.getElementById('zoom-out');
         const home = document.getElementById('home');
         const fullPage = document.getElementById('full-page');
-        const mainNavLinks = document.querySelectorAll('.main-nav a'); // For active link highlighting
+        const mainNavLinks = document.querySelectorAll('.main-nav a');
 
-        // --- Modal Related Elements (Based on your final HTML) ---
-        // Note: Your final HTML has #about-link in nav but not the other links
-        // Adjust if you add About/Contact links back to nav or use other triggers
-        const aboutLink = document.querySelector('.main-nav a[href="#"]'); // Assuming '关于' link triggers about modal
-        const igLink = document.getElementById('ig-link');     // Assuming footer IG link
-        const fbLink = document.getElementById('fb-link');     // Assuming footer 微信 link (ID is 'fb-link' in your HTML)
+        // --- Modal Related Elements ---
+        // Use querySelector for potentially missing elements to avoid errors
+        const aboutLink = document.querySelector('#about-link'); // Assuming ID on the '关于' link
+        const igLink = document.getElementById('ig-link');
+        const fbLink = document.getElementById('fb-link'); // HTML uses 'fb-link' for Wechat trigger
         const socialModal = document.getElementById('social-modal');
         const aboutModal = document.getElementById('about-modal');
         const qrCodeImage = document.getElementById('qr-code-image');
         const modalCloses = document.querySelectorAll('.modal-close');
-
 
         // --- State Variables ---
         let currentPath = '';
         let isDarkMode = false;
         let viewer = null;
         const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tif', '.tiff'];
-        const baseImageDir = 'SYSTEM'; // Base directory for constructing image URLs (relative to index.html)
+        const baseImageDir = 'SYSTEM';
 
-        // --- NEW: Variable to store the loaded JSON file structure ---
+        // --- JSON Data Store ---
         let fileStructure = null;
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', async () => {
-            // Load theme preference
             loadThemePreference();
-
-            // --- Fetch the file list JSON ---
             try {
-                const response = await fetch('filelist.json'); // Fetch the JSON file from the root
+                const response = await fetch('filelist.json');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
                 }
-                fileStructure = await response.json(); // Parse and store the JSON
-                console.log("File structure loaded:", fileStructure); // Optional: check console
+                fileStructure = await response.json();
+                console.log("File structure loaded");
 
-                // Initial gallery load (after JSON is loaded)
                 const initialPath = window.location.hash.substring(1);
-                loadGallery(initialPath || ''); // Load initial path or root
+                loadGallery(initialPath || '');
 
             } catch (error) {
                 console.error('Failed to load file structure:', error);
-                galleryElement.innerHTML = `<div class="empty-message">错误：无法加载文件列表 (filelist.json)。<br>请确保文件存在于网站根目录且格式正确。<br>${error.message}</div>`;
+                galleryElement.innerHTML = `<div class="empty-message">错误：无法加载文件列表 (filelist.json)。<br>${error.message}</div>`;
             }
-
-            // Hash change listener
-            window.addEventListener('hashchange', () => {
-                const hash = window.location.hash.substring(1);
-                // Only reload if the hash actually changed and JSON is loaded
-                if (hash !== currentPath && fileStructure) {
-                    loadGallery(hash);
-                }
-            });
-
-            // Setup other event listeners
-            setupEventListeners();
+            setupEventListeners(); // Setup listeners after initial setup attempts
+            window.addEventListener('hashchange', handleHashChange);
         });
+
+        function handleHashChange() {
+             const hash = window.location.hash.substring(1);
+             // Only reload if hash changed AND different from current path AND structure loaded
+             if (hash !== currentPath && fileStructure) {
+                 loadGallery(hash);
+             }
+         }
 
         // --- Theme Handling ---
         function loadThemePreference() {
             const savedTheme = localStorage.getItem('darkMode');
-            if (savedTheme === 'true') {
+            isDarkMode = savedTheme === 'true'; // Set boolean directly
+            if (isDarkMode) {
                 document.body.classList.add('dark-mode');
-                isDarkMode = true;
-                 themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色'; // Adjust text based on actual button content
-            } else {
-                 themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色';
             }
+            // Ensure button text is correct on load
+            themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色';
         }
 
         function toggleTheme() {
-            document.body.classList.toggle('dark-mode');
-            isDarkMode = document.body.classList.contains('dark-mode');
+            isDarkMode = !isDarkMode; // Toggle state
+            document.body.classList.toggle('dark-mode', isDarkMode); // Use boolean overload
             localStorage.setItem('darkMode', isDarkMode);
-            themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色'; // Adjust text
+            themeToggle.textContent = isDarkMode ? '切换亮色' : '切换暗色';
         }
 
 
         // --- Event Listeners Setup ---
         function setupEventListeners() {
             themeToggle.addEventListener('click', toggleTheme);
-
-            // Image Viewer Controls
             closeViewer.addEventListener('click', closeImageViewer);
             infoToggle.addEventListener('click', toggleInfoPanel);
             zoomIn.addEventListener('click', () => { if (viewer) viewer.viewport.zoomBy(1.5); });
             zoomOut.addEventListener('click', () => { if (viewer) viewer.viewport.zoomBy(0.5); });
             home.addEventListener('click', () => { if (viewer) viewer.viewport.goHome(); });
             fullPage.addEventListener('click', toggleFullScreenViewer);
+            breadcrumbElement.addEventListener('click', handleBreadcrumbClick); // Use delegation
 
-             // Breadcrumb Navigation (delegated)
-             breadcrumbElement.addEventListener('click', handleBreadcrumbClick);
-
-            // Modal Triggers & Closing
-             // Ensure links exist before adding listeners
-             if (aboutLink) {
-                aboutLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    openModal(aboutModal);
-                 });
-             } else {
-                 console.warn("About link not found for modal trigger.");
-             }
-
-             if (igLink) {
-                 igLink.addEventListener('click', (e) => {
-                     e.preventDefault();
-                     qrCodeImage.src = 'assets/ig-qr.png'; // Assuming this path exists
-                     qrCodeImage.alt = 'Instagram QR Code';
-                     openModal(socialModal);
-                 });
-             } else {
-                  console.warn("IG link not found for modal trigger.");
-             }
-
-             if (fbLink) {
-                 fbLink.addEventListener('click', (e) => {
-                     e.preventDefault();
-                     qrCodeImage.src = 'assets/wc-qr.JPG'; // Use the correct path from your HTML
-                     qrCodeImage.alt = 'Wechat QR Code';
-                     openModal(socialModal);
-                 });
-             } else {
-                 console.warn("Wechat/FB link ('#fb-link') not found for modal trigger.");
-             }
-
-
-             modalCloses.forEach(button => {
-                 button.addEventListener('click', () => {
-                     const modalId = button.getAttribute('data-modal-id');
-                     const modalToClose = document.getElementById(modalId);
-                     if (modalToClose) {
-                         closeModal(modalToClose);
-                     }
-                 });
-             });
-
-             window.addEventListener('click', (e) => {
-                 if (e.target === socialModal) closeModal(socialModal);
-                 if (e.target === aboutModal) closeModal(aboutModal);
-             });
-
-            // Keyboard listeners (Escape key)
+            // Modal Listeners (with checks)
+            if (aboutLink) {
+                aboutLink.addEventListener('click', (e) => { e.preventDefault(); openModal(aboutModal); });
+            }
+            if (igLink) {
+                igLink.addEventListener('click', (e) => { e.preventDefault(); qrCodeImage.src = 'assets/ig-qr.png'; qrCodeImage.alt = 'Instagram'; openModal(socialModal); });
+            }
+            if (fbLink) { // Note: ID 'fb-link' is used for '微信' in your HTML
+                fbLink.addEventListener('click', (e) => { e.preventDefault(); qrCodeImage.src = 'assets/wc-qr.JPG'; qrCodeImage.alt = 'Wechat'; openModal(socialModal); });
+            }
+            modalCloses.forEach(button => {
+                button.addEventListener('click', () => {
+                    const modalId = button.getAttribute('data-modal-id');
+                    const modalToClose = document.getElementById(modalId);
+                    if (modalToClose) closeModal(modalToClose);
+                });
+            });
+            window.addEventListener('click', (e) => {
+                if (e.target === socialModal) closeModal(socialModal);
+                if (e.target === aboutModal) closeModal(aboutModal);
+            });
             document.addEventListener('keydown', handleKeyDown);
         }
 
         function handleKeyDown(e) {
-             const viewerVisible = window.getComputedStyle(imageViewer).display !== 'none';
-             const socialModalVisible = window.getComputedStyle(socialModal).display !== 'none';
-             const aboutModalVisible = window.getComputedStyle(aboutModal).display !== 'none';
-
              if (e.key === 'Escape') {
-                 if (viewerVisible) {
-                     closeImageViewer();
-                 } else if (socialModalVisible) {
-                     closeModal(socialModal);
-                 } else if (aboutModalVisible) {
-                     closeModal(aboutModal);
-                 }
+                 if (window.getComputedStyle(imageViewer).display !== 'none') closeImageViewer();
+                 else if (window.getComputedStyle(socialModal).display !== 'none') closeModal(socialModal);
+                 else if (window.getComputedStyle(aboutModal).display !== 'none') closeModal(aboutModal);
              }
         }
-
 
         // --- JSON Navigation Helper ---
         function getNodeByPath(structure, path) {
             if (!structure) return null;
-            // Handle root path explicitly targeting the initial structure from JSON
-            if (path === '' || path === '/') {
-                 // Assuming your JSON root IS the 'SYSTEM' directory object
-                 if (structure.name === baseImageDir && structure.type === 'directory') {
-                     return structure;
-                 } else {
-                      console.warn("JSON root does not match expected baseImageDir structure.");
-                      return structure; // Fallback to returning the raw structure
-                 }
+            if (!path) { // Root path check
+                 return (structure.name === baseImageDir && structure.type === 'directory') ? structure : null;
             }
-
-            const parts = path.split('/').filter(p => p); // Split path and remove empty parts
-            let currentNode = structure; // Start from the loaded root JSON object
-
+            const parts = path.split('/');
+            let currentNode = structure;
             for (const part of parts) {
-                const decodedPart = decodeURIComponent(part); // Handle encoded names if necessary
+                // Decode part for lookup, as keys in JSON are likely decoded
+                const decodedPart = decodeURIComponent(part);
                 if (currentNode && currentNode.children && currentNode.children[decodedPart]) {
                     currentNode = currentNode.children[decodedPart];
                 } else {
-                    console.warn(`Part '${decodedPart}' not found in path '${path}' within JSON node:`, currentNode);
                     return null; // Path segment not found
                 }
             }
             return currentNode;
         }
 
-        // --- Gallery Loading (Uses JSON) ---
+        // --- ** URL Construction Helper (NEW) ** ---
+        function buildEncodedUrl(...pathSegments) {
+            // Filters out empty segments, encodes each non-empty segment, joins with '/'
+            return pathSegments
+                .filter(segment => segment !== null && segment !== undefined && segment !== '')
+                .map(segment => String(segment).split('/').map(encodeURIComponent).join('/')) // Encode each part within a segment if it contains '/'
+                .join('/');
+        }
+
+
+        // --- Gallery Loading (Uses JSON & NEW URL Builder) ---
         function loadGallery(path) {
             if (!fileStructure) {
-                galleryElement.innerHTML = '<div class="empty-message"><div class="loader"></div>文件列表尚未加载...</div>';
-                console.error("loadGallery called before file structure was loaded.");
+                galleryElement.innerHTML = '<div class="empty-message"><div class="loader"></div>文件列表加载中...</div>';
                 return;
             }
 
-            console.log(`Loading gallery for path: '${path}'`); // Debugging
-            currentPath = path;
+            currentPath = path; // Store the potentially encoded path from hash
             updateBreadcrumb(path);
-            updateGalleryTitle(path); // Update title based on the target directory name
+            updateGalleryTitle(path);
             updateActiveNavLink(path);
 
-            // Navigate the JSON based on the path
             const currentNode = getNodeByPath(fileStructure, path);
-            console.log("Current JSON node:", currentNode); // Debugging
-
-            galleryElement.innerHTML = ''; // Clear previous content
+            galleryElement.innerHTML = '';
 
             if (!currentNode || currentNode.type !== 'directory') {
-                console.error(`Path not found or not a directory in JSON: ${path}`);
-                galleryElement.innerHTML = `<div class="empty-message">错误：无法在文件列表找到路径 '${path}'。</div>`;
-                updateGalleryTitle(`错误`); // Indicate error in title
+                galleryElement.innerHTML = `<div class="empty-message">错误：路径 '${path || '(root)'}' 无效。</div>`;
+                updateGalleryTitle("错误");
                 return;
             }
-
-             // Update title using the name from the JSON node if available
-             updateGalleryTitle(path); // Use the path logic for now, can refine later
-
-            // Check if the directory node has children
              if (!currentNode.children || Object.keys(currentNode.children).length === 0) {
                  galleryElement.innerHTML = '<div class="empty-message">此文件夹为空</div>';
                  return;
              }
 
-            // Process directories and images from the JSON node's children
             const children = currentNode.children;
             let itemCount = 0;
-            const sortedKeys = Object.keys(children).sort(); // Sort for consistency
+            const sortedKeys = Object.keys(children).sort();
 
-            sortedKeys.forEach(itemName => {
+            sortedKeys.forEach(itemName => { // itemName is the raw (decoded) key from JSON
                 const item = children[itemName];
-                const encodedItemName = encodeURIComponent(itemName); // Ensure name is URL-safe for path
-                const newPath = path ? `${path}/${encodedItemName}` : encodedItemName; // Construct full path for item
+                // Path for linking/navigation should use encoded names
+                const encodedItemName = encodeURIComponent(itemName);
+                const newNavPath = path ? `${path}/${encodedItemName}` : encodedItemName;
+                // Path for displaying/using locally might need decoding if needed elsewhere
+                // const decodedNewPath = path ? `${decodeURIComponent(path)}/${itemName}` : itemName;
 
                 if (item.type === 'directory') {
                     itemCount++;
                     const folderElement = document.createElement('div');
-                    folderElement.className = 'folder loading-cover'; // Add loading class for cover fetch
-                    folderElement.innerHTML = `<div class="folder-name">${itemName}</div>`; // Use original name for display
-                    folderElement.setAttribute('data-path', newPath); // Use URL-safe path for navigation
-                    folderElement.addEventListener('click', (e) => {
-                        const targetPath = e.currentTarget.getAttribute('data-path');
-                        window.location.hash = `#${targetPath}`; // Use hash change to trigger load
-                    });
+                    folderElement.className = 'folder loading-cover';
+                    folderElement.innerHTML = `<div class="folder-name">${itemName}</div>`; // Display raw name
+                    folderElement.setAttribute('data-path', newNavPath); // Store encoded path for nav
+                    folderElement.addEventListener('click', () => { window.location.hash = `#${newNavPath}`; });
                     galleryElement.appendChild(folderElement);
-                    fetchAndSetFolderCover(newPath, folderElement); // Fetch cover using URL-safe path
+                    fetchAndSetFolderCover(newNavPath, folderElement); // Pass encoded path
                 } else if (item.type === 'file') {
                      const extension = itemName.substring(itemName.lastIndexOf('.')).toLowerCase();
                      if (imageExtensions.includes(extension)) {
                          itemCount++;
                          const imageElement = document.createElement('div');
                          imageElement.className = 'image-item';
-                         // Construct URL: Base Dir + Full Path (already includes filename)
-                         const imageUrl = `${baseImageDir}/${path ? path + '/' : ''}${itemName}`; // Use original names for URL construction
-                         // const imageDisplayName = itemName; // Use original name for display/alt text
 
-                         // Apply filename-only logic for display if needed, otherwise use full name
+                         // **MODIFIED URL Construction**
+                         // Build URL using decoded path parts + base dir, then encode properly
+                         const decodedPathParts = path ? path.split('/').map(decodeURIComponent) : [];
+                         const imageUrl = buildEncodedUrl(baseImageDir, ...decodedPathParts, itemName);
+
                          const lastDot = itemName.lastIndexOf('.');
                          const nameForDisplay = lastDot > 0 ? itemName.substring(0, lastDot) : itemName;
 
-                         // Note: Your HTML included '.image-name' again. Uncomment if needed.
+                         // Your HTML included .image-name, keeping it commented out based on prior request
                          imageElement.innerHTML = `<img src="${imageUrl}" alt="${nameForDisplay}" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML += '<p style=\\'color:red; padding:10px;\\'>图片加载失败</p>';">`;
-                         // + `<div class="image-name">${nameForDisplay}</div>`; // Uncomment if you want the hover name back
+                         // + `<div class="image-name">${nameForDisplay}</div>`; // Uncomment if needed
 
                          imageElement.addEventListener('click', () => {
-                             showImageViewer(imageUrl, itemName); // Pass URL and original filename (for info panel)
+                             showImageViewer(imageUrl, itemName); // Pass encoded URL, raw item name
                          });
                          galleryElement.appendChild(imageElement);
                      }
                 }
             });
 
-             if (itemCount === 0 && galleryElement.children.length === 0) { // Check if really empty after filtering
-                 galleryElement.innerHTML = '<div class="empty-message">此文件夹中没有图片或子目录。</div>';
+             if (itemCount === 0 && galleryElement.children.length === 0) {
+                 galleryElement.innerHTML = '<div class="empty-message">此文件夹中无内容。</div>';
              }
         }
 
-        // --- Folder Cover Loading (Uses JSON) ---
-        function fetchAndSetFolderCover(folderPath, folderElement) {
-            if (!fileStructure) return; // Guard against race condition
+        // --- Folder Cover Loading (Uses JSON & NEW URL Builder) ---
+        function fetchAndSetFolderCover(folderPath, folderElement) { // folderPath is encoded here
+            if (!fileStructure) return;
 
+            // Use encoded path to find node, as keys are decoded in getNodeByPath
             const folderNode = getNodeByPath(fileStructure, folderPath);
-            folderElement.classList.remove('loading-cover'); // Remove spinner once processed
+            folderElement.classList.remove('loading-cover');
 
             if (!folderNode || folderNode.type !== 'directory' || !folderNode.children) {
                  folderElement.style.backgroundImage = 'none';
                  folderElement.classList.remove('has-cover');
-                 // Optionally add an error class if node not found vs. just empty
                  if (!folderNode) folderElement.classList.add('has-error');
                 return;
             }
 
             let coverImageUrl = null;
             const childrenKeys = Object.keys(folderNode.children).sort();
-            for (const itemName of childrenKeys) {
+            for (const itemName of childrenKeys) { // itemName is raw key
                 const item = folderNode.children[itemName];
                 if (item.type === 'file') {
                     const extension = itemName.substring(itemName.lastIndexOf('.')).toLowerCase();
                     if (imageExtensions.includes(extension)) {
-                         // Construct URL: Base Dir + Folder Path + Item Name
-                         // Need original names here for the URL path segments
-                         const originalPathSegments = folderPath.split('/').map(decodeURIComponent).join('/');
-                         coverImageUrl = `${baseImageDir}/${originalPathSegments}/${itemName}`;
+                         // **MODIFIED URL Construction**
+                         const decodedPathParts = folderPath ? folderPath.split('/').map(decodeURIComponent) : [];
+                         coverImageUrl = buildEncodedUrl(baseImageDir, ...decodedPathParts, itemName);
                          break;
                     }
                 }
@@ -595,44 +533,40 @@
             if (coverImageUrl) {
                 folderElement.style.backgroundImage = `url('${coverImageUrl}')`;
                 folderElement.classList.add('has-cover');
-                folderElement.classList.remove('has-error'); // Remove error if cover is found
+                folderElement.classList.remove('has-error');
             } else {
                 folderElement.style.backgroundImage = 'none';
                 folderElement.classList.remove('has-cover');
-                folderElement.classList.remove('has-error'); // Not an error if just empty
+                folderElement.classList.remove('has-error');
             }
         }
 
         // --- UI Update Functions ---
-        function updateBreadcrumb(path) {
-            // Use baseImageDir from JSON if available, otherwise fallback
-            const rootDisplayName = fileStructure?.name || baseImageDir;
-            let html = `<a href="#/" data-path="">${rootDisplayName}</a>`; // Link to root hash
-            let currentBuildPath = '';
-            if (path) {
-                const parts = path.split('/');
-                parts.forEach((part) => {
-                    if (!part) return;
-                    const decodedPart = decodeURIComponent(part); // Display decoded name
-                    // Build path using encoded parts for the href/data-path
-                    currentBuildPath += (currentBuildPath ? '/' : '') + part;
-                    html += ` <span>/</span> <a href="#${currentBuildPath}" data-path="${currentBuildPath}">${decodedPart}</a>`;
-                });
-            }
-            breadcrumbElement.innerHTML = html;
-            // Event listener is delegated in setupEventListeners, no need to re-attach
-        }
+        function updateBreadcrumb(path) { // path is encoded
+             const rootDisplayName = fileStructure?.name || baseImageDir;
+             let html = `<a href="#/" data-path="">${rootDisplayName}</a>`;
+             let currentBuildPath = '';
+             if (path) {
+                 const parts = path.split('/');
+                 parts.forEach((part) => { // part is encoded
+                     if (!part) return;
+                     const decodedPart = decodeURIComponent(part);
+                     currentBuildPath += (currentBuildPath ? '/' : '') + part; // Keep building encoded path
+                     html += ` <span>/</span> <a href="#${currentBuildPath}" data-path="${currentBuildPath}">${decodedPart}</a>`; // Link uses encoded, display decoded
+                 });
+             }
+             breadcrumbElement.innerHTML = html;
+         }
 
         function handleBreadcrumbClick(e) {
             if (e.target.tagName === 'A' && e.target.hasAttribute('data-path')) {
                 e.preventDefault();
-                const pathToLoad = e.target.getAttribute('data-path');
-                // Use hash change to trigger navigation and history
-                window.location.hash = `#${pathToLoad}`;
+                const pathToLoad = e.target.getAttribute('data-path'); // Already encoded
+                window.location.hash = `#${pathToLoad}`; // Trigger hash change
             }
         }
 
-        function updateGalleryTitle(path) {
+        function updateGalleryTitle(path) { // path is encoded
              if (!path) {
                  galleryTitleElement.textContent = fileStructure?.name || baseImageDir;
              } else {
@@ -641,104 +575,58 @@
              }
          }
 
-        function updateActiveNavLink(path) {
-             // This function needs adjustment based on your final nav links if they relate to paths
-             // Currently, it only highlights "首页" when path is empty
+        function updateActiveNavLink(path) { // path is encoded
              mainNavLinks.forEach(link => {
                  link.classList.remove('active');
-                 // Check if the link's href corresponds to the current base path
-                 // This logic might need refinement depending on nav structure
-                 if (link.getAttribute('href') === '#/' && (path === '' || path === '/')) {
+                 // Only highlight '首页' for now
+                 if (link.getAttribute('href') === '#/' && !path) {
                      link.classList.add('active');
                  }
-                 // Add logic here if other nav links should be active based on path
              });
-             // Ensure home is not active if navigating deeper
-             if(path !== '' && path !== '/') {
-                 const homeLink = document.querySelector('.main-nav a[href="#/"]');
-                 if (homeLink) homeLink.classList.remove('active');
-             }
          }
 
         // --- Image Viewer Functions ---
-        function showImageViewer(src, originalFilename) { // Use original filename for info panel
+        function showImageViewer(imageUrl, originalFilename) { // imageUrl is already encoded
             imageViewer.style.display = 'block';
-
-            // Extract filename without extension for display
             const lastDotIndex = originalFilename.lastIndexOf('.');
             const filenameWithoutExtension = lastDotIndex > 0 ? originalFilename.substring(0, lastDotIndex) : originalFilename;
 
-            // Set info panel content
-            imageTitle.textContent = filenameWithoutExtension; // Show filename without ext in title
-            imageInfo.textContent = `文件名: ${filenameWithoutExtension}`; // Show filename without ext in info
-
+            imageTitle.textContent = filenameWithoutExtension;
+            imageInfo.textContent = `文件名: ${filenameWithoutExtension}`; // Show filename only
             infoPanel.classList.remove('visible');
             infoToggle.textContent = '显示信息';
 
             if (viewer) { viewer.destroy(); viewer = null; }
-            viewer = OpenSeadragon({
-                id: "viewer-container",
-                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/3.1.0/images/",
-                tileSources: { type: 'image', url: src, buildPyramid: false }, // Use the direct image URL
-                showNavigator: true,
-                navigatorPosition: "BOTTOM_RIGHT",
-                animationTime: 0.5,
-                blendTime: 0.1,
-                constrainDuringPan: true,
-                maxZoomPixelRatio: 2,
-                minZoomLevel: 0.5,
-                visibilityRatio: 0.5,
-                zoomPerScroll: 1.2,
-                gestureSettingsMouse: { clickToZoom: true, dblClickToZoom: true },
-                showNavigationControl: false, // Use custom buttons
-                showZoomControl: false,
-                showHomeControl: false,
-                showFullPageControl: false,
-                showRotationControl: false
-            });
-            viewer.addHandler('open', function() {
-                viewer.viewport.goHome(false); // Go home without animation on open
-            });
-             viewer.addHandler('canvas-click', function() { // Optional: Close info panel on click
-                 if (infoPanel.classList.contains('visible')) {
-                      toggleInfoPanel();
-                 }
-             });
-        }
-
-        function closeImageViewer() {
-            imageViewer.style.display = 'none';
-            if (viewer) {
-                viewer.destroy();
-                viewer = null;
+            try {
+                viewer = OpenSeadragon({
+                    id: "viewer-container",
+                    prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/3.1.0/images/",
+                    tileSources: { type: 'image', url: imageUrl, buildPyramid: false }, // Pass the pre-built, encoded URL
+                    showNavigator: true, navigatorPosition: "BOTTOM_RIGHT", animationTime: 0.5, blendTime: 0.1, constrainDuringPan: true, maxZoomPixelRatio: 2, minZoomLevel: 0.5, visibilityRatio: 0.5, zoomPerScroll: 1.2, gestureSettingsMouse: { clickToZoom: true, dblClickToZoom: true }, showNavigationControl: false, showZoomControl: false, showHomeControl: false, showFullPageControl: false, showRotationControl: false
+                });
+                viewer.addHandler('open-failed', function(event) {
+                     console.error("OpenSeadragon Error:", event);
+                     // Display a user-friendly error in the viewer area or info panel
+                     imageTitle.textContent = "错误";
+                     imageInfo.textContent = `无法加载图片: ${originalFilename}. 请检查文件路径和网络连接。(${event.message})`;
+                     // Maybe hide the OSD container and show a message div instead
+                 });
+                viewer.addHandler('open', function() { viewer.viewport.goHome(false); });
+                viewer.addHandler('canvas-click', () => { if (infoPanel.classList.contains('visible')) toggleInfoPanel(); });
+            } catch (e) {
+                console.error("Error initializing OpenSeadragon:", e);
+                 imageTitle.textContent = "查看器错误";
+                 imageInfo.textContent = `无法初始化图片查看器: ${e.message}`;
             }
         }
 
-        function toggleInfoPanel() {
-            infoPanel.classList.toggle('visible');
-            infoToggle.textContent = infoPanel.classList.contains('visible') ? '隐藏信息' : '显示信息';
-        }
-
-        function toggleFullScreenViewer() {
-             if (!document.fullscreenElement) {
-                  imageViewer.requestFullscreen().catch(err => {
-                      console.error(`Fullscreen request failed: ${err.message} (${err.name})`);
-                      alert('无法进入全屏模式。');
-                  });
-              } else {
-                   document.exitFullscreen();
-              }
-        }
-
+        function closeImageViewer() { imageViewer.style.display = 'none'; if (viewer) { viewer.destroy(); viewer = null; } }
+        function toggleInfoPanel() { infoPanel.classList.toggle('visible'); infoToggle.textContent = infoPanel.classList.contains('visible') ? '隐藏信息' : '显示信息'; }
+        function toggleFullScreenViewer() { if (!document.fullscreenElement) { imageViewer.requestFullscreen().catch(err => console.error(`Fullscreen Error: ${err.message}`)); } else { document.exitFullscreen(); } }
 
         // --- Modal Control Functions ---
-        function openModal(modalElement) {
-            if(modalElement) modalElement.style.display = 'flex';
-        }
-
-        function closeModal(modalElement) {
-             if(modalElement) modalElement.style.display = 'none';
-        }
+        function openModal(modalElement) { if(modalElement) modalElement.style.display = 'flex'; }
+        function closeModal(modalElement) { if(modalElement) modalElement.style.display = 'none'; }
 
     </script>
 </body>
